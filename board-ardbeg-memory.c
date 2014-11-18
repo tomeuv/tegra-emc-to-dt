@@ -16,15 +16,59 @@
  * 02111-1307, USA
  */
 
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/platform_data/tegra_emc.h>
+typedef		unsigned int	u8;
+typedef		unsigned int	u32;
 
-#include "board.h"
-#include "board-ardbeg.h"
-#include "tegra-board-id.h"
-#include "tegra12_emc.h"
-#include "devices.h"
+#define TEGRA12_MAX_TABLE_ID_LEN	60
+
+#define TEGRA12_EMC_MAX_NUM_REGS 200
+#define TEGRA12_EMC_MAX_NUM_BURST_REGS 175
+#define TEGRA12_EMC_MAX_UP_DOWN_REGS 40
+
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
+struct tegra12_emc_table {
+	u8 rev;
+	char table_id[TEGRA12_MAX_TABLE_ID_LEN];
+	unsigned long rate;
+	int emc_min_mv;
+	int gk20a_min_mv;
+	char src_name[16];
+	u32 src_sel_reg;
+
+	int burst_regs_num;
+	int burst_up_down_regs_num;
+
+	/* unconditionally updated in one burst shot */
+	u32 burst_regs[TEGRA12_EMC_MAX_NUM_BURST_REGS];
+
+	/* one burst shot, but update time depends on rate change direction */
+	u32 burst_up_down_regs[TEGRA12_EMC_MAX_UP_DOWN_REGS];
+
+	/* updated separately under some conditions */
+	u32 emc_zcal_cnt_long;
+	u32 emc_acal_interval;
+	u32 emc_ctt_term_ctrl;
+	u32 emc_cfg;
+	u32 emc_cfg_2;
+	u32 emc_sel_dpd_ctrl;
+	u32 emc_cfg_dig_dll;
+	u32 emc_bgbias_ctl0;
+	u32 emc_auto_cal_config2;
+	u32 emc_auto_cal_config3;
+	u32 emc_auto_cal_config;
+	u32 emc_mode_reset;
+	u32 emc_mode_1;
+	u32 emc_mode_2;
+	u32 emc_mode_4;
+	u32 clock_change_latency;
+};
+
+struct tegra12_emc_pdata {
+	const char *description;
+	int num_tables;
+	struct tegra12_emc_table *tables;
+};
 
 static struct tegra12_emc_table ardbeg_ddr3_emc_table_pm358[] = {
 	{
@@ -16799,89 +16843,3 @@ static struct tegra12_emc_pdata pm375_2GB_emc_pdata = {
 	.tables = pm375_ddr3_emc_table,
 	.num_tables = ARRAY_SIZE(pm375_ddr3_emc_table),
 };
-/*
- * Also handles Ardbeg init.
- */
-int __init ardbeg_emc_init(void)
-{
-	struct board_info bi;
-	int use_dt_emc_table = 0;
-
-	/*
-	 * If the EMC table is successfully read from the NCT partition,
-	 * we do not need to check for board ids and blindly load the one
-	 * flashed on the NCT partition.
-	 */
-	#ifdef CONFIG_TEGRA_USE_NCT
-	if (!tegra12_nct_emc_table_init(&board_emc_pdata)) {
-		tegra_emc_device.dev.platform_data = &board_emc_pdata;
-		pr_info("Loading EMC table read from NCT partition.\n");
-	} else {
-	#endif
-		tegra_get_board_info(&bi);
-
-		switch (bi.board_id) {
-		case BOARD_PM358:
-			pr_info("Loading PM358 EMC tables.\n");
-			tegra_emc_device.dev.platform_data = &ardbeg_ddr3_emc_pdata_pm358;
-			break;
-		case BOARD_PM359:
-			pr_info("Loading PM359 EMC tables.\n");
-			tegra_emc_device.dev.platform_data =
-						&ardbeg_ddr3_emc_pdata_pm359;
-			break;
-		case BOARD_P1761:
-		case BOARD_E1784:
-		case BOARD_E1922:
-			pr_info("Loading TN8 (%d) EMC tables from DeviceTree.\n",
-				bi.board_id);
-			use_dt_emc_table = true;
-			break;
-		case BOARD_E1780:
-		case BOARD_E1782:
-			if (of_machine_is_compatible("nvidia,tn8")) {
-				pr_info("Loading TN8 EMC tables from DeviceTree.\n");
-				use_dt_emc_table = true;
-			} else if (tegra_get_memory_type()) {
-				pr_info("Loading Ardbeg 4GB EMC tables.\n");
-				tegra_emc_device.dev.platform_data =
-					&ardbeg_4GB_emc_pdata;
-			} else {
-				pr_info("Loading Ardbeg EMC tables.\n");
-				tegra_emc_device.dev.platform_data =
-					&ardbeg_emc_pdata;
-			}
-			break;
-		case BOARD_E1792:
-			pr_info("Loading Ardbeg EMC tables.\n");
-			tegra_emc_device.dev.platform_data = &ardbeg_lpddr3_emc_pdata;
-			break;
-		case BOARD_E1781:
-			pr_info("Loading Ardbeg (1781) EMC tables\n");
-			tegra_emc_device.dev.platform_data = &ardbeg_lpddr3_emc_pdata_E1781;
-			break;
-		case BOARD_PM375:
-			if (of_machine_is_compatible("nvidia,jetson-tk1")) {
-				pr_info("Loading jetson TK1 EMC tables.\n");
-				tegra_emc_device.dev.platform_data =
-					&jetson_tk1_2GB_emc_pdata;
-			} else {
-				pr_info("Loading PM375 EMC tables.\n");
-				tegra_emc_device.dev.platform_data =
-					&pm375_2GB_emc_pdata;
-			}
-			break;
-		default:
-			pr_info("emc dvfs table not present\n");
-			return -EINVAL;
-		}
-	#ifdef CONFIG_TEGRA_USE_NCT
-	}
-	#endif
-
-	if (!use_dt_emc_table)
-		platform_device_register(&tegra_emc_device);
-
-	tegra12_emc_init();
-	return 0;
-}
