@@ -34,7 +34,6 @@ static void print_emc_table(struct tegra12_emc_pdata *board_data)
 		p4("nvidia,emc-bgbias-ctl0", table->emc_bgbias_ctl0);
 		p4("nvidia,emc-cfg", table->emc_cfg);
 		p4("nvidia,emc-cfg-2", table->emc_cfg_2);
-		p4("nvidia,emc-cfg-dig-dll", table->emc_cfg_dig_dll);
 		p4("nvidia,emc-ctt-term-ctrl", table->emc_ctt_term_ctrl);
 		p4("nvidia,emc-mode-1", table->emc_mode_1);
 		p4("nvidia,emc-mode-2", table->emc_mode_2);
