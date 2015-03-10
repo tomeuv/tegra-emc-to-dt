@@ -48,6 +48,10 @@ static void print_emc_table(struct tegra12_emc_pdata *board_data)
 		printf("\n\t\t\t\tnvidia,emc-configuration = <\n");
 
 		for (j = 0; j < MC_EMEM_ARB_CFG; j++) {
+			if ((j == EMC_XM2DQSPADCTRL2) ||
+			    (j == EMC_MRS_WAIT_CNT) ||
+			    (j == EMC_ZCAL_INTERVAL))
+				continue;
 			printf("\t\t\t\t\t0x%08x\n", table->burst_regs[j]);
 		}
 
